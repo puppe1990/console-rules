@@ -32,6 +32,8 @@ const importFile = $('#importFile');
 let snippets = [];
 /** @type {string|null} */
 let activeId = null;
+/** @type {string|null} */
+let draggingId = null;
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 function now() { return Date.now(); }
@@ -69,11 +71,38 @@ function renderList() {
     const li = document.createElement('li');
     li.dataset.id = s.id;
     li.className = s.id === activeId ? 'active' : '';
+    li.draggable = true;
     li.innerHTML = `
-      <div class="title">${escapeHtml(s.name)}</div>
-      <div class="meta">${new Date(s.updatedAt).toLocaleString()}</div>
+      <div class="handle" title="Arrastar para reordenar" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" opacity="0.6">
+          <circle cx="7" cy="7" r="1.5"/><circle cx="7" cy="12" r="1.5"/><circle cx="7" cy="17" r="1.5"/>
+          <circle cx="12" cy="7" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="17" r="1.5"/>
+        </svg>
+      </div>
+      <div class="content">
+        <div class="title">${escapeHtml(s.name)}</div>
+        <div class="meta">${new Date(s.updatedAt).toLocaleString()}</div>
+      </div>
     `;
     li.addEventListener('click', () => selectSnippet(s.id));
+    // Drag & drop reorder
+    li.addEventListener('dragstart', (e) => {
+      // Only allow when no search filter to avoid confusing partial reorder
+      if ((searchEl.value || '').trim() !== '') {
+        e.preventDefault();
+        setStatus('Limpe a busca para reordenar');
+        return;
+      }
+      draggingId = s.id;
+      li.classList.add('dragging');
+      try { e.dataTransfer && (e.dataTransfer.effectAllowed = 'move'); } catch {}
+    });
+    li.addEventListener('dragend', () => {
+      li.classList.remove('dragging');
+      draggingId = null;
+      // Clean any transient styles
+      Array.from(listEl.children).forEach((el) => el.classList && el.classList.remove('drag-over'));
+    });
     listEl.appendChild(li);
   }
 }
@@ -238,6 +267,39 @@ function bindEvents() {
     if (mod && e.key === 's') { e.preventDefault(); saveSnippet(); }
     if (mod && (e.key === 'Enter' || e.code === 'Enter')) { e.preventDefault(); runSnippet(); }
   });
+
+  // Drag & drop reorder on the list container
+  listEl.addEventListener('dragover', (e) => {
+    if (!draggingId) return;
+    e.preventDefault();
+    try { e.dataTransfer && (e.dataTransfer.dropEffect = 'move'); } catch {}
+    const afterEl = getDragAfterElement(listEl, e.clientY);
+    Array.from(listEl.children).forEach((el) => el.classList && el.classList.remove('drag-over'));
+    if (afterEl) afterEl.classList.add('drag-over');
+  });
+  listEl.addEventListener('drop', async (e) => {
+    if (!draggingId) return;
+    e.preventDefault();
+    const afterEl = getDragAfterElement(listEl, e.clientY);
+    // Compute new order (only valid when search is empty)
+    const fromIdx = snippets.findIndex((x) => x.id === draggingId);
+    if (fromIdx === -1) return;
+    const next = [...snippets];
+    const [moved] = next.splice(fromIdx, 1);
+    let insertIdx;
+    if (!afterEl) {
+      insertIdx = next.length; // place at end
+    } else {
+      const afterId = afterEl.dataset.id;
+      insertIdx = next.findIndex((x) => x.id === afterId);
+      if (insertIdx < 0) insertIdx = next.length;
+    }
+    next.splice(insertIdx, 0, moved);
+    snippets = next;
+    await saveAll();
+    setStatus('Ordem atualizada');
+    renderList();
+  });
 }
 
 (async function init() {
@@ -321,6 +383,20 @@ function exportSnippets() {
     a.remove();
   }, 0);
   setStatus('Exportado');
+}
+
+// ----- Reorder helpers -----
+function getDragAfterElement(container, y) {
+  const els = [...container.querySelectorAll('li:not(.dragging)')];
+  let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+  for (const el of els) {
+    const box = el.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) {
+      closest = { offset, element: el };
+    }
+  }
+  return closest.element;
 }
 
 async function handleImportFile(e) {

@@ -219,6 +219,9 @@ button:disabled {
   margin-bottom: 4px;
   transition: var(--transition);
   border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .list li:hover {
@@ -246,6 +249,11 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   margin-bottom: 4px;
+}
+
+.list .content {
+  flex: 1;
+  min-width: 0;
 }
 
 .list li.active .title {
@@ -436,6 +444,28 @@ button:disabled {
 
 .list li {
   animation: fadeIn 0.2s ease-out;
+}
+
+/* Drag & drop affordances */
+.list li .handle {
+  color: var(--fg-subtle);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  cursor: grab;
+  flex-shrink: 0;
+}
+
+.list li.dragging {
+  opacity: 0.6;
+  transform: scale(0.995);
+}
+
+.list li.drag-over {
+  border-color: var(--border);
+  background: var(--bg-elevated);
 }
 
 .loading {
