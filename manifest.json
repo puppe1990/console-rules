@@ -8,15 +8,15 @@
     "default_popup": "popup.html",
     "default_title": "Console Rules",
     "default_icon": {
-      "16": "logo.svg",
-      "48": "logo.svg",
-      "128": "logo.svg"
+      "16": "icon-16x16.png",
+      "48": "icon-48x48.png",
+      "128": "icon-128x128.png"
     }
   },
   "icons": {
-    "16": "logo.svg",
-    "48": "logo.svg",
-    "128": "logo.svg"
+    "16": "icon-16x16.png",
+    "48": "icon-48x48.png",
+    "128": "icon-128x128.png"
   }
 }
 
