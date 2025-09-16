@@ -33,7 +33,7 @@
 ### Instalação Manual
 1. Clone este repositório:
    ```bash
-   git clone https://github.com/matheuspuppe/console-rules.git
+   git clone https://github.com/matheuspuppe/console-rules.git](https://github.com/puppe1990/console-rules.git
    cd console-rules
    ```
 
