@@ -20,10 +20,8 @@
 ## 🖼️ Screenshots
 
 ### Popup Principal
-![Popup Interface](https://via.placeholder.com/800x600/0a0e13/2f81f7?text=Console+Rules+Popup)
+<img width="722" height="527" alt="Screenshot 2025-09-16 at 07 06 01" src="https://github.com/user-attachments/assets/364b1f85-0f26-4562-9ff8-b7f8dfc99a39" />
 
-### DevTools Panel
-![DevTools Panel](https://via.placeholder.com/1200x800/0a0e13/2f81f7?text=DevTools+Panel)
 
 ## 🚀 Instalação
 
