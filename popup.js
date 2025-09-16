@@ -83,6 +83,12 @@ function renderList() {
         <div class="title">${escapeHtml(s.name)}</div>
         <div class="meta">${new Date(s.updatedAt).toLocaleString()}</div>
       </div>
+      <button class="icon-btn del-btn" title="Excluir" aria-label="Excluir snippet" data-action="delete" data-id="${s.id}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
     `;
     li.addEventListener('click', () => selectSnippet(s.id));
     // Drag & drop reorder
@@ -103,6 +109,15 @@ function renderList() {
       // Clean any transient styles
       Array.from(listEl.children).forEach((el) => el.classList && el.classList.remove('drag-over'));
     });
+    // Bind delete button inside the list item
+    const del = li.querySelector('button[data-action="delete"]');
+    if (del) {
+      del.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const id = del.getAttribute('data-id');
+        if (id) deleteSnippetById(id);
+      });
+    }
     listEl.appendChild(li);
   }
 }
@@ -166,6 +181,21 @@ async function deleteSnippet() {
   activeId = snippets[0]?.id || null;
   if (activeId) selectSnippet(activeId); else { nameEl.value = ''; codeEl.value = ''; }
   renderList();
+}
+
+async function deleteSnippetById(id) {
+  const s = snippets.find((x) => x.id === id);
+  if (!s) return;
+  if (!confirm(`Excluir "${s.name}"?`)) return;
+  const wasActive = activeId === id;
+  snippets = snippets.filter((x) => x.id !== id);
+  await saveAll();
+  if (wasActive) {
+    activeId = snippets[0]?.id || null;
+    if (activeId) selectSnippet(activeId); else { nameEl.value = ''; codeEl.value = ''; updateHighlight(); }
+  }
+  renderList();
+  setStatus('Snippet excluído');
 }
 
 function withSourceURL(code, name) {

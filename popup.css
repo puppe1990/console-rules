@@ -468,6 +468,33 @@ button:disabled {
   background: var(--bg-elevated);
 }
 
+/* Inline icon button for item actions (e.g., delete) */
+.icon-btn {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  margin-left: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--fg-subtle);
+  box-shadow: none;
+  transform: none;
+}
+
+.icon-btn:hover {
+  background: var(--bg-elevated);
+}
+
+.icon-btn svg { opacity: 0.9; }
+
+.del-btn { opacity: 0; transition: var(--transition); }
+.list li:hover .del-btn, .list li.active .del-btn { opacity: 1; }
+.del-btn:hover { color: var(--danger); background: rgba(248, 81, 73, 0.12); }
+.list li.active .del-btn { color: rgba(255, 255, 255, 0.95); }
+.list li.active .del-btn:hover { color: white; background: rgba(255, 255, 255, 0.18); }
+
 .loading {
   animation: pulse 1.5s infinite;
 }
