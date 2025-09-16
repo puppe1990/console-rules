@@ -2,13 +2,21 @@
   "manifest_version": 3,
   "name": "Console Rules",
   "version": "0.1.0",
-  "description": "Save and run code snippets directly in the DevTools console.",
-  "permissions": ["storage"],
-  "devtools_page": "devtools/devtools.html",
+  "description": "Save and run code snippets directly in the browser console.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Console Rules",
+    "default_icon": {
+      "16": "logo.svg",
+      "48": "logo.svg",
+      "128": "logo.svg"
+    }
+  },
   "icons": {
-    "16": "icon-16.svg",
-    "48": "icon-48.svg",
-    "128": "icon-128.svg"
+    "16": "logo.svg",
+    "48": "logo.svg",
+    "128": "logo.svg"
   }
 }
 
