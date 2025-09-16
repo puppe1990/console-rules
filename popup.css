@@ -17,13 +17,18 @@
   --radius: 8px;
   --radius-sm: 6px;
   --transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Popup sizing */
+  --popup-w: 720px;
+  --popup-h: 520px;
+  --toolbar-h: 44px;
+  --statusbar-h: 36px;
 }
 
 * { box-sizing: border-box; }
 
 html, body { 
-  height: 600px;
-  width: 800px;
+  height: var(--popup-h);
+  width: var(--popup-w);
   margin: 0;
   padding: 0;
 }
@@ -45,7 +50,7 @@ body {
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   background: linear-gradient(to bottom, var(--bg-elev), var(--bg));
-  min-height: 44px;
+  height: var(--toolbar-h);
   box-shadow: 0 1px 3px var(--shadow);
 }
 
@@ -63,7 +68,7 @@ body {
   padding: 8px 12px;
   border-top: 1px solid var(--border);
   background: var(--bg-elev);
-  min-height: 36px;
+  height: var(--statusbar-h);
 }
 
 .toolbar .right button { 
@@ -158,7 +163,7 @@ button:disabled {
 .layout {
   display: grid;
   grid-template-columns: 220px 1fr;
-  height: calc(600px - 80px);
+  height: calc(var(--popup-h) - var(--toolbar-h) - var(--statusbar-h));
   gap: 1px;
   background: var(--border);
 }
@@ -167,6 +172,8 @@ button:disabled {
   overflow: hidden;
   background: var(--bg-elev);
   border-radius: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar-header { 
@@ -200,7 +207,7 @@ button:disabled {
   margin: 0; 
   padding: 8px; 
   overflow: auto; 
-  height: calc(100% - 60px);
+  flex: 1;
   background: var(--bg-elev);
 }
 
@@ -259,10 +266,20 @@ button:disabled {
   padding: 16px; 
   overflow: hidden;
   background: var(--bg);
+  display: flex;
+  flex-direction: column;
 }
 
 .field { 
   margin-bottom: 12px; 
+}
+
+/* Make the last field (code) fill the space */
+.editor .field:last-child {
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* allows child to shrink for flex overflow */
+  flex: 1;
 }
 
 .field label { 
@@ -305,7 +322,7 @@ button:disabled {
 /* Syntax-highlighted editor overlay */
 .code-editor {
   position: relative;
-  height: calc(600px - 180px);
+  height: 100%;
   font-family: 'SF Mono', ui-monospace, Menlo, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
   font-size: 13px;
   line-height: 1.5;
@@ -437,10 +454,6 @@ button:disabled {
   
   .editor {
     padding: 12px;
-  }
-  
-  .code-editor {
-    height: calc(600px - 160px);
   }
 }
 
