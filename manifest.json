@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Console Rules",
+  "version": "0.1.0",
+  "description": "Save and run code snippets directly in the DevTools console.",
+  "permissions": ["storage"],
+  "devtools_page": "devtools/devtools.html",
+  "icons": {
+    "16": "icon-16.svg",
+    "48": "icon-48.svg",
+    "128": "icon-128.svg"
+  }
+}
+

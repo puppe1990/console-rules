@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Console Rules Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <header class="toolbar">
+      <div class="left">
+        <strong>Console Rules</strong>
+      </div>
+      <div class="right">
+        <button id="newSnippetBtn" title="Novo snippet">Novo</button>
+        <button id="runSnippetBtn" class="primary" title="Executar snippet">Executar</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <input id="searchInput" type="text" placeholder="Buscar…" />
+        </div>
+        <ul id="snippetList" class="list" aria-label="Snippets salvos"></ul>
+      </aside>
+
+      <section class="editor">
+        <div class="field">
+          <label for="nameInput">Nome</label>
+          <input id="nameInput" type="text" placeholder="Ex.: Limpar cookies" />
+        </div>
+        <div class="field">
+          <label for="codeInput">Código</label>
+          <div class="code-editor" id="codeEditor">
+            <pre id="highlighting" aria-hidden="true"><code id="highlighting-content" class="language-javascript"></code></pre>
+            <textarea id="codeInput" spellcheck="false" placeholder="// Cole ou escreva seu código aqui"></textarea>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="statusbar">
+      <div class="left">
+        <button id="saveSnippetBtn" class="secondary">Salvar</button>
+        <button id="duplicateSnippetBtn" class="secondary">Duplicar</button>
+        <button id="deleteSnippetBtn" class="danger">Excluir</button>
+        <span style="margin: 0 6px; color: #9aa4b2;">|</span>
+        <button id="exportBtn" class="secondary" title="Exportar snippets">Exportar</button>
+        <button id="importBtn" class="secondary" title="Importar snippets">Importar</button>
+        <input id="importFile" type="file" accept="application/json" style="display:none" />
+      </div>
+      <div id="status" class="right" aria-live="polite"></div>
+    </footer>
+
+    <script src="panel.js"></script>
+  </body>
+  </html>

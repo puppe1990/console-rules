@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SVG to PNG Icon Converter</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .icon-container { margin: 20px 0; border: 1px solid #ccc; padding: 10px; }
+        canvas { border: 1px solid #ddd; margin: 10px 0; }
+        button { padding: 10px 20px; margin: 5px; background: #22c55e; color: white; border: none; cursor: pointer; }
+        button:hover { background: #16a34a; }
+    </style>
+</head>
+<body>
+    <h1>Convert SVG Icons to PNG</h1>
+    <p>This tool will help you convert your SVG icons to PNG format for Chrome extension compatibility.</p>
+    
+    <div class="icon-container">
+        <h3>16x16 Icon</h3>
+        <svg id="icon16" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+            <rect x="1" y="1" width="14" height="14" rx="2" fill="none" stroke="#22c55e" stroke-width="1"/>
+            <polyline points="5.5 5.5 3.5 8 5.5 10.5" fill="none" stroke="#22c55e" stroke-width="1"/>
+            <polyline points="10.5 5.5 12.5 8 10.5 10.5" fill="none" stroke="#22c55e" stroke-width="1"/>
+            <line x1="7" y1="11.5" x2="9" y2="4.5" stroke="#22c55e" stroke-width="1"/>
+        </svg>
+        <br>
+        <canvas id="canvas16" width="16" height="16"></canvas>
+        <br>
+        <button onclick="convertIcon('icon16', 'canvas16', 'icon-16.png')">Download 16x16 PNG</button>
+    </div>
+
+    <div class="icon-container">
+        <h3>48x48 Icon</h3>
+        <svg id="icon48" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+            <rect x="4" y="4" width="40" height="40" rx="6" fill="none" stroke="#22c55e" stroke-width="3"/>
+            <polyline points="16 16 10 24 16 32" fill="none" stroke="#22c55e" stroke-width="3"/>
+            <polyline points="32 16 38 24 32 32" fill="none" stroke="#22c55e" stroke-width="3"/>
+            <line x1="20" y1="34" x2="28" y2="14" stroke="#22c55e" stroke-width="3"/>
+        </svg>
+        <br>
+        <canvas id="canvas48" width="48" height="48"></canvas>
+        <br>
+        <button onclick="convertIcon('icon48', 'canvas48', 'icon-48.png')">Download 48x48 PNG</button>
+    </div>
+
+    <div class="icon-container">
+        <h3>128x128 Icon</h3>
+        <svg id="icon128" xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+            <rect x="8" y="8" width="112" height="112" rx="16" fill="none" stroke="#22c55e" stroke-width="8"/>
+            <polyline points="44 44 24 64 44 84" fill="none" stroke="#22c55e" stroke-width="8"/>
+            <polyline points="84 44 104 64 84 84" fill="none" stroke="#22c55e" stroke-width="8"/>
+            <line x1="52" y1="92" x2="76" y2="36" stroke="#22c55e" stroke-width="8"/>
+        </svg>
+        <br>
+        <canvas id="canvas128" width="128" height="128"></canvas>
+        <br>
+        <button onclick="convertIcon('icon128', 'canvas128', 'icon-128.png')">Download 128x128 PNG</button>
+    </div>
+
+    <script>
+        function convertIcon(svgId, canvasId, filename) {
+            const svg = document.getElementById(svgId);
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+            const url = URL.createObjectURL(svgBlob);
+            
+            const img = new Image();
+            img.onload = function() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+                
+                canvas.toBlob(function(blob) {
+                    const link = document.createElement('a');
+                    link.download = filename;
+                    link.href = URL.createObjectURL(blob);
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                }, 'image/png');
+                
+                URL.revokeObjectURL(url);
+            };
+            img.src = url;
+        }
+        
+        // Auto-render previews
+        window.onload = function() {
+            ['16', '48', '128'].forEach(size => {
+                convertPreview('icon' + size, 'canvas' + size);
+            });
+        };
+        
+        function convertPreview(svgId, canvasId) {
+            const svg = document.getElementById(svgId);
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+            const url = URL.createObjectURL(svgBlob);
+            
+            const img = new Image();
+            img.onload = function() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+                URL.revokeObjectURL(url);
+            };
+            img.src = url;
+        }
+    </script>
+</body>
+</html>
