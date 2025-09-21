@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Console Rules",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Save and run code snippets directly in the browser console. Supports English and Portuguese.",
   "permissions": ["storage", "activeTab", "scripting"],
   "action": {
