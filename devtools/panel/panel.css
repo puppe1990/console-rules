@@ -59,6 +59,35 @@ body {
 
 .toolbar .right button { margin-left: 8px; }
 
+.language-selector {
+  background: var(--bg-elevated);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: var(--transition);
+  outline: none;
+  margin-right: 8px;
+  height: 32px;
+}
+
+.language-selector:hover {
+  border-color: var(--border-muted);
+  background: var(--bg-elev);
+}
+
+.language-selector:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(47, 129, 247, 0.1);
+}
+
+.language-selector option {
+  background: var(--bg-elevated);
+  color: var(--fg);
+}
+
 button {
   background: var(--bg-elevated);
   color: var(--fg);

@@ -18,6 +18,7 @@ const codeEl = $('#codeInput');
 const statusEl = $('#status');
 const highlightPre = document.querySelector('#highlighting');
 const highlightCode = document.querySelector('#highlighting-content');
+const languageSelector = $('#languageSelector');
 
 const newBtn = $('#newSnippetBtn');
 const runBtn = $('#runSnippetBtn');
@@ -44,8 +45,8 @@ async function loadSnippets() {
   if (snippets.length === 0) {
     const initial = /** @type {Snippet} */ ({
       id: uid(),
-      name: 'Exemplo: Olá Console',
-      code: "console.log('Olá do Console Rules!');",
+      name: translator.t('exampleSnippetName'),
+      code: translator.t('exampleSnippetCode'),
       updatedAt: now(),
     });
     snippets = [initial];
@@ -73,7 +74,7 @@ function renderList() {
     li.className = s.id === activeId ? 'active' : '';
     li.draggable = true;
     li.innerHTML = `
-      <div class="handle" title="Arrastar para reordenar" aria-hidden="true">
+      <div class="handle" title="${translator.t('dragToReorderTooltip')}" aria-hidden="true">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" opacity="0.6">
           <circle cx="7" cy="7" r="1.5"/><circle cx="7" cy="12" r="1.5"/><circle cx="7" cy="17" r="1.5"/>
           <circle cx="12" cy="7" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="17" r="1.5"/>
@@ -83,7 +84,7 @@ function renderList() {
         <div class="title">${escapeHtml(s.name)}</div>
         <div class="meta">${new Date(s.updatedAt).toLocaleString()}</div>
       </div>
-      <button class="icon-btn del-btn" title="Excluir" aria-label="Excluir snippet" data-action="delete" data-id="${s.id}">
+      <button class="icon-btn del-btn" title="${translator.t('deleteTooltip')}" aria-label="${translator.t('deleteTooltip')}" data-action="delete" data-id="${s.id}">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -96,7 +97,7 @@ function renderList() {
       // Only allow when no search filter to avoid confusing partial reorder
       if ((searchEl.value || '').trim() !== '') {
         e.preventDefault();
-        setStatus('Limpe a busca para reordenar');
+        setStatus(translator.t('clearSearchToReorder'));
         return;
       }
       draggingId = s.id;
@@ -139,7 +140,7 @@ function selectSnippet(id) {
 function getActive() { return snippets.find((x) => x.id === activeId) || null; }
 
 async function addSnippet() {
-  const s = /** @type {Snippet} */ ({ id: uid(), name: 'Novo snippet', code: '', updatedAt: now() });
+  const s = /** @type {Snippet} */ ({ id: uid(), name: translator.t('newSnippetName'), code: '', updatedAt: now() });
   snippets.unshift(s);
   await saveAll();
   selectSnippet(s.id);
@@ -149,11 +150,11 @@ async function addSnippet() {
 async function saveSnippet() {
   const s = getActive();
   if (!s) return;
-  s.name = nameEl.value.trim() || 'Sem título';
+  s.name = nameEl.value.trim() || translator.t('noTitleFallback');
   s.code = codeEl.value;
   s.updatedAt = now();
   await saveAll();
-  setStatus('Snippet salvo');
+  setStatus(translator.t('snippetSaved'));
   renderList();
 }
 
@@ -162,7 +163,7 @@ async function duplicateSnippet() {
   if (!s) return;
   const copy = /** @type {Snippet} */ ({
     id: uid(),
-    name: s.name + ' (cópia)',
+    name: s.name + translator.t('copySuffix'),
     code: s.code,
     updatedAt: now(),
   });
@@ -175,7 +176,7 @@ async function duplicateSnippet() {
 async function deleteSnippet() {
   const s = getActive();
   if (!s) return;
-  if (!confirm(`Excluir "${s.name}"?`)) return;
+  if (!confirm(translator.t('deleteConfirmation', { name: s.name }))) return;
   snippets = snippets.filter((x) => x.id !== s.id);
   await saveAll();
   activeId = snippets[0]?.id || null;
@@ -186,7 +187,7 @@ async function deleteSnippet() {
 async function deleteSnippetById(id) {
   const s = snippets.find((x) => x.id === id);
   if (!s) return;
-  if (!confirm(`Excluir "${s.name}"?`)) return;
+  if (!confirm(translator.t('deleteConfirmation', { name: s.name }))) return;
   const wasActive = activeId === id;
   snippets = snippets.filter((x) => x.id !== id);
   await saveAll();
@@ -195,7 +196,7 @@ async function deleteSnippetById(id) {
     if (activeId) selectSnippet(activeId); else { nameEl.value = ''; codeEl.value = ''; updateHighlight(); }
   }
   renderList();
-  setStatus('Snippet excluído');
+  setStatus(translator.t('snippetDeleted'));
 }
 
 function withSourceURL(code, name) {
@@ -213,13 +214,13 @@ async function runSnippet() {
     // Get the active tab
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab) {
-      setStatus('Nenhuma aba ativa');
+      setStatus(translator.t('noActiveTab'));
       return;
     }
 
     // Check if we can execute scripts on this tab
     if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('chrome-extension://') || tab.url?.startsWith('edge://') || tab.url?.startsWith('about:')) {
-      setStatus('Não é possível executar em páginas especiais');
+      setStatus(translator.t('cannotExecuteOnSpecialPages'));
       return;
     }
 
@@ -244,13 +245,13 @@ async function runSnippet() {
 
     const result = results[0]?.result;
     if (result?.success) {
-      setStatus('Executado com sucesso');
+      setStatus(translator.t('executedSuccessfully'));
     } else {
-      setStatus(`Erro: ${result?.error || 'Erro desconhecido'}`);
+      setStatus(translator.t('errorExecuting') + ': ' + (result?.error || translator.t('unknownError')));
     }
   } catch (error) {
     console.error('Console Rules error:', error);
-    setStatus(`Erro: ${error.message}`);
+    setStatus(translator.t('errorExecuting') + ': ' + error.message);
   }
 }
 
@@ -264,6 +265,12 @@ function bindEvents() {
   exportBtn.addEventListener('click', exportSnippets);
   importBtn.addEventListener('click', () => importFile.click());
   importFile.addEventListener('change', handleImportFile);
+  
+  // Language selector
+  languageSelector.addEventListener('change', async (e) => {
+    await translator.setLanguage(e.target.value);
+    updateUI();
+  });
 
   // Editor events: input, scroll sync, Tab/Enter helpers
   codeEl.addEventListener('input', () => {
@@ -327,16 +334,59 @@ function bindEvents() {
     next.splice(insertIdx, 0, moved);
     snippets = next;
     await saveAll();
-    setStatus('Ordem atualizada');
+    setStatus(translator.t('orderUpdated'));
     renderList();
   });
 }
 
+function updateUI() {
+  // Update all UI text elements
+  newBtn.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 5v14M5 12h14"/>
+    </svg>
+    ${translator.t('new')}
+  `;
+  newBtn.title = translator.t('newSnippetTooltip');
+  
+  runBtn.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polygon points="5,3 19,12 5,21"/>
+    </svg>
+    ${translator.t('run')}
+  `;
+  runBtn.title = translator.t('runSnippetTooltip');
+  
+  saveBtn.textContent = translator.t('save');
+  dupBtn.textContent = translator.t('duplicate');
+  delBtn.textContent = translator.t('delete');
+  exportBtn.textContent = translator.t('export');
+  exportBtn.title = translator.t('exportTooltip');
+  importBtn.textContent = translator.t('import');
+  importBtn.title = translator.t('importTooltip');
+  
+  // Update form labels and placeholders
+  document.querySelector('label[for="nameInput"]').textContent = translator.t('nameLabel');
+  document.querySelector('label[for="codeInput"]').textContent = translator.t('codeLabel');
+  nameEl.placeholder = translator.t('namePlaceholder');
+  codeEl.placeholder = translator.t('codePlaceholder');
+  searchEl.placeholder = translator.t('searchPlaceholder');
+  
+  // Update aria labels
+  listEl.setAttribute('aria-label', translator.t('savedSnippetsAria'));
+  
+  // Re-render the list to update tooltips and other dynamic content
+  renderList();
+}
+
 (async function init() {
+  await translator.init();
+  languageSelector.value = translator.getCurrentLanguage();
+  
   await loadSnippets();
   activeId = snippets[0]?.id || null;
   bindEvents();
-  renderList();
+  updateUI();
   if (activeId) selectSnippet(activeId);
 })();
 
@@ -412,7 +462,7 @@ function exportSnippets() {
     URL.revokeObjectURL(a.href);
     a.remove();
   }, 0);
-  setStatus('Exportado');
+  setStatus(translator.t('exported'));
 }
 
 // ----- Reorder helpers -----
@@ -437,16 +487,16 @@ async function handleImportFile(e) {
     const text = await file.text();
     const data = JSON.parse(text);
     let imported = Array.isArray(data) ? data : (Array.isArray(data?.snippets) ? data.snippets : []);
-    if (!Array.isArray(imported)) throw new Error('Arquivo inválido');
+    if (!Array.isArray(imported)) throw new Error(translator.t('importFailed'));
     const cleaned = [];
     for (const item of imported) {
       if (!item || typeof item.code !== 'string') continue;
-      const name = (item.name && String(item.name)) || 'Sem título';
+      const name = (item.name && String(item.name)) || translator.t('noTitleFallback');
       const code = String(item.code);
       const updatedAt = Number(item.updatedAt) || now();
       cleaned.push({ id: uid(), name, code, updatedAt });
     }
-    if (cleaned.length === 0) throw new Error('Nada para importar');
+    if (cleaned.length === 0) throw new Error(translator.t('nothingToImport'));
 
     // Merge: prepend imported, keep existing
     snippets = [...cleaned, ...snippets];
@@ -454,9 +504,9 @@ async function handleImportFile(e) {
     activeId = cleaned[0].id;
     selectSnippet(activeId);
     renderList();
-    setStatus(`Importados ${cleaned.length}`);
+    setStatus(translator.t('importedCount', { count: cleaned.length }));
   } catch (err) {
     console.warn('Falha ao importar', err);
-    alert('Falha ao importar: ' + (err && err.message ? err.message : String(err)));
+    alert(translator.t('importFailed') + ': ' + (err && err.message ? err.message : String(err)));
   }
 }

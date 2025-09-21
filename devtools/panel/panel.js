@@ -18,6 +18,7 @@ const codeEl = $('#codeInput');
 const statusEl = $('#status');
 const highlightPre = document.querySelector('#highlighting');
 const highlightCode = document.querySelector('#highlighting-content');
+const languageSelector = $('#languageSelector');
 
 const newBtn = $('#newSnippetBtn');
 const runBtn = $('#runSnippetBtn');
@@ -42,8 +43,8 @@ async function loadSnippets() {
   if (snippets.length === 0) {
     const initial = /** @type {Snippet} */ ({
       id: uid(),
-      name: 'Exemplo: Olá Console',
-      code: "console.log('Olá do Console Rules!');",
+      name: translator.t('exampleSnippetName'),
+      code: translator.t('exampleSnippetCode'),
       updatedAt: now(),
     });
     snippets = [initial];
@@ -95,7 +96,7 @@ function selectSnippet(id) {
 function getActive() { return snippets.find((x) => x.id === activeId) || null; }
 
 async function addSnippet() {
-  const s = /** @type {Snippet} */ ({ id: uid(), name: 'Novo snippet', code: '', updatedAt: now() });
+  const s = /** @type {Snippet} */ ({ id: uid(), name: translator.t('newSnippetName'), code: '', updatedAt: now() });
   snippets.unshift(s);
   await saveAll();
   selectSnippet(s.id);
@@ -105,11 +106,11 @@ async function addSnippet() {
 async function saveSnippet() {
   const s = getActive();
   if (!s) return;
-  s.name = nameEl.value.trim() || 'Sem título';
+  s.name = nameEl.value.trim() || translator.t('noTitleFallback');
   s.code = codeEl.value;
   s.updatedAt = now();
   await saveAll();
-  setStatus('Snippets salvos');
+  setStatus(translator.t('snippetsSaved'));
   renderList();
 }
 
@@ -118,7 +119,7 @@ async function duplicateSnippet() {
   if (!s) return;
   const copy = /** @type {Snippet} */ ({
     id: uid(),
-    name: s.name + ' (cópia)',
+    name: s.name + translator.t('copySuffix'),
     code: s.code,
     updatedAt: now(),
   });
@@ -131,7 +132,7 @@ async function duplicateSnippet() {
 async function deleteSnippet() {
   const s = getActive();
   if (!s) return;
-  if (!confirm(`Excluir "${s.name}"?`)) return;
+  if (!confirm(translator.t('deleteConfirmation', { name: s.name }))) return;
   snippets = snippets.filter((x) => x.id !== s.id);
   await saveAll();
   activeId = snippets[0]?.id || null;
@@ -155,11 +156,11 @@ async function runSnippet() {
     { useContentScriptContext: false },
     (result, exceptionInfo) => {
       if (exceptionInfo && (exceptionInfo.isException || exceptionInfo.value)) {
-        const msg = exceptionInfo.value?.description || exceptionInfo.value || 'Erro ao executar';
+        const msg = exceptionInfo.value?.description || exceptionInfo.value || translator.t('errorExecuting');
         setStatus(String(msg));
         console.warn('Console Rules error:', exceptionInfo);
       } else {
-        setStatus('Executado');
+        setStatus(translator.t('executed'));
         // Show the result in DevTools console for convenience
         try { console.log('[Console Rules]', result); } catch {}
       }
@@ -177,6 +178,12 @@ function bindEvents() {
   exportBtn.addEventListener('click', exportSnippets);
   importBtn.addEventListener('click', () => importFile.click());
   importFile.addEventListener('change', handleImportFile);
+  
+  // Language selector
+  languageSelector.addEventListener('change', async (e) => {
+    await translator.setLanguage(e.target.value);
+    updateUI();
+  });
 
   // Editor events: input, scroll sync, Tab/Enter helpers
   codeEl.addEventListener('input', () => {
@@ -212,11 +219,54 @@ function bindEvents() {
   });
 }
 
+function updateUI() {
+  // Update all UI text elements
+  newBtn.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 5v14M5 12h14"/>
+    </svg>
+    ${translator.t('new')}
+  `;
+  newBtn.title = translator.t('newSnippetTooltip');
+  
+  runBtn.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polygon points="5,3 19,12 5,21"/>
+    </svg>
+    ${translator.t('run')}
+  `;
+  runBtn.title = translator.t('runSnippetTooltip');
+  
+  saveBtn.textContent = translator.t('save');
+  dupBtn.textContent = translator.t('duplicate');
+  delBtn.textContent = translator.t('delete');
+  exportBtn.textContent = translator.t('export');
+  exportBtn.title = translator.t('exportTooltip');
+  importBtn.textContent = translator.t('import');
+  importBtn.title = translator.t('importTooltip');
+  
+  // Update form labels and placeholders
+  document.querySelector('label[for="nameInput"]').textContent = translator.t('nameLabel');
+  document.querySelector('label[for="codeInput"]').textContent = translator.t('codeLabel');
+  nameEl.placeholder = translator.t('namePlaceholder');
+  codeEl.placeholder = translator.t('codePlaceholder');
+  searchEl.placeholder = translator.t('searchPlaceholder');
+  
+  // Update aria labels
+  listEl.setAttribute('aria-label', translator.t('savedSnippetsAria'));
+  
+  // Re-render the list to update tooltips and other dynamic content
+  renderList();
+}
+
 (async function init() {
+  await translator.init();
+  languageSelector.value = translator.getCurrentLanguage();
+  
   await loadSnippets();
   activeId = snippets[0]?.id || null;
   bindEvents();
-  renderList();
+  updateUI();
   if (activeId) selectSnippet(activeId);
 })();
 
@@ -292,7 +342,7 @@ function exportSnippets() {
     URL.revokeObjectURL(a.href);
     a.remove();
   }, 0);
-  setStatus('Exportado');
+  setStatus(translator.t('exported'));
 }
 
 async function handleImportFile(e) {
@@ -303,16 +353,16 @@ async function handleImportFile(e) {
     const text = await file.text();
     const data = JSON.parse(text);
     let imported = Array.isArray(data) ? data : (Array.isArray(data?.snippets) ? data.snippets : []);
-    if (!Array.isArray(imported)) throw new Error('Arquivo inválido');
+    if (!Array.isArray(imported)) throw new Error(translator.t('importFailed'));
     const cleaned = [];
     for (const item of imported) {
       if (!item || typeof item.code !== 'string') continue;
-      const name = (item.name && String(item.name)) || 'Sem título';
+      const name = (item.name && String(item.name)) || translator.t('noTitleFallback');
       const code = String(item.code);
       const updatedAt = Number(item.updatedAt) || now();
       cleaned.push({ id: uid(), name, code, updatedAt });
     }
-    if (cleaned.length === 0) throw new Error('Nada para importar');
+    if (cleaned.length === 0) throw new Error(translator.t('nothingToImport'));
 
     // Merge: prepend imported, keep existing
     snippets = [...cleaned, ...snippets];
@@ -320,9 +370,9 @@ async function handleImportFile(e) {
     activeId = cleaned[0].id;
     selectSnippet(activeId);
     renderList();
-    setStatus(`Importados ${cleaned.length}`);
+    setStatus(translator.t('importedCount', { count: cleaned.length }));
   } catch (err) {
     console.warn('Falha ao importar', err);
-    alert('Falha ao importar: ' + (err && err.message ? err.message : String(err)));
+    alert(translator.t('importFailed') + ': ' + (err && err.message ? err.message : String(err)));
   }
 }
