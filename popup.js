@@ -19,6 +19,9 @@ const statusEl = $('#status');
 const highlightPre = document.querySelector('#highlighting');
 const highlightCode = document.querySelector('#highlighting-content');
 const languageSelector = $('#languageSelector');
+const fullscreenBtn = $('#fullscreenBtn');
+const urlParams = new URLSearchParams(location.search);
+const isFullscreenPage = urlParams.get('fullscreen') === '1';
 
 const newBtn = $('#newSnippetBtn');
 const runBtn = $('#runSnippetBtn');
@@ -35,13 +38,30 @@ let snippets = [];
 let activeId = null;
 /** @type {string|null} */
 let draggingId = null;
+const AUTOSAVE_MS = 500;
+/** @type {number|null} */
+let autosaveTimer = null;
+let hasPendingSave = false;
+let localFallbackNotified = false;
+let isFullscreen = false;
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 function now() { return Date.now(); }
 
 async function loadSnippets() {
-  const res = await chrome.storage.sync.get(STORAGE_KEY);
-  snippets = res[STORAGE_KEY] || [];
+  const [syncRes, localRes] = await Promise.all([
+    chrome.storage.sync.get(STORAGE_KEY),
+    chrome.storage.local.get(LOCAL_STORAGE_KEY),
+  ]);
+  const localSnippets = localRes[LOCAL_STORAGE_KEY];
+  const syncSnippets = syncRes[STORAGE_KEY];
+  snippets = (Array.isArray(localSnippets) && localSnippets.length > 0)
+    ? localSnippets
+    : (syncSnippets || []);
+  if (Array.isArray(localSnippets) && localSnippets.length > 0) {
+    localFallbackNotified = true;
+    setStatus(translator.t('loadedFromLocal'));
+  }
   if (snippets.length === 0) {
     const initial = /** @type {Snippet} */ ({
       id: uid(),
@@ -54,8 +74,48 @@ async function loadSnippets() {
   }
 }
 
+const LOCAL_STORAGE_KEY = 'consoleRules.snippets.local';
+const SYNC_SAFE_BYTES = 7500; // soft cap to avoid per-item quota hits
+
+function isQuotaError(err) {
+  const msg = (err && err.message ? err.message : String(err || '')).toLowerCase();
+  return msg.includes('quota') || msg.includes('kquotabytesperitem');
+}
+
+function estimateBytes(obj) {
+  try {
+    return new TextEncoder().encode(JSON.stringify(obj)).length;
+  } catch {
+    return Infinity;
+  }
+}
+
 async function saveAll() {
-  await chrome.storage.sync.set({ [STORAGE_KEY]: snippets });
+  const payload = { [STORAGE_KEY]: snippets };
+  const bytes = estimateBytes(payload);
+  const preferLocal = bytes > SYNC_SAFE_BYTES;
+  try {
+    if (!preferLocal) {
+      await chrome.storage.sync.set(payload);
+      await chrome.storage.local.remove(LOCAL_STORAGE_KEY);
+      hasPendingSave = false;
+      localFallbackNotified = false;
+      return;
+    }
+  } catch (err) {
+    if (!isQuotaError(err)) {
+      hasPendingSave = true;
+      throw err;
+    }
+  }
+
+  // Fallback to local storage when sync is too small
+  await chrome.storage.local.set({ [LOCAL_STORAGE_KEY]: snippets });
+  hasPendingSave = false;
+  if (!localFallbackNotified) {
+    setStatus('Salvo localmente (sync cheio)');
+    localFallbackNotified = true;
+  }
 }
 
 function setStatus(msg) {
@@ -139,6 +199,55 @@ function selectSnippet(id) {
 
 function getActive() { return snippets.find((x) => x.id === activeId) || null; }
 
+function applyFormToActive(options = {}) {
+  const { trimName = false, forceTimestamp = false } = options;
+  const s = getActive();
+  if (!s) return { changed: false, snippet: null };
+  const nameValue = trimName ? nameEl.value.trim() : nameEl.value;
+  const nextName = nameValue || translator.t('noTitleFallback');
+  const nextCode = codeEl.value;
+  const changed = forceTimestamp || s.name !== nextName || s.code !== nextCode;
+  if (changed) {
+    s.name = nextName;
+    s.code = nextCode;
+    s.updatedAt = now();
+  }
+  return { changed, snippet: s };
+}
+
+function scheduleAutosave() {
+  const { changed, snippet } = applyFormToActive();
+  if (!snippet) return;
+  if (changed) renderList();
+  hasPendingSave = hasPendingSave || changed;
+  if (!hasPendingSave) return;
+  if (autosaveTimer !== null) clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => {
+    autosaveTimer = null;
+    if (!hasPendingSave) return;
+    saveAll().catch((err) => {
+      console.warn('Autosave failed', err);
+      hasPendingSave = true;
+    });
+  }, AUTOSAVE_MS);
+}
+
+async function flushAutosave() {
+  if (autosaveTimer !== null) {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = null;
+  }
+  const { snippet } = applyFormToActive({ trimName: true });
+  if (!snippet || !hasPendingSave) return;
+  try {
+    await saveAll();
+    renderList();
+  } catch (err) {
+    console.warn('Autosave flush failed', err);
+    hasPendingSave = true;
+  }
+}
+
 async function addSnippet() {
   const s = /** @type {Snippet} */ ({ id: uid(), name: translator.t('newSnippetName'), code: '', updatedAt: now() });
   snippets.unshift(s);
@@ -148,14 +257,29 @@ async function addSnippet() {
 }
 
 async function saveSnippet() {
-  const s = getActive();
-  if (!s) return;
-  s.name = nameEl.value.trim() || translator.t('noTitleFallback');
-  s.code = codeEl.value;
-  s.updatedAt = now();
+  const { snippet } = applyFormToActive({ trimName: true, forceTimestamp: true });
+  if (!snippet) return;
+  hasPendingSave = true;
   await saveAll();
   setStatus(translator.t('snippetSaved'));
   renderList();
+}
+
+function toggleFullscreen() {
+  const url = chrome.runtime.getURL('popup.html?fullscreen=1');
+  chrome.tabs.create({ url });
+}
+
+function updateFullscreenButton() {
+  if (!fullscreenBtn) return;
+  const label = translator.t('fullscreenEnter');
+  fullscreenBtn.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M9 3H5a2 2 0 0 0-2 2v4m0 6v4a2 2 0 0 0 2 2h4m6 0h4a2 2 0 0 0 2-2v-4m0-6V5a2 2 0 0 0-2-2h-4"/>
+    </svg>
+    ${label}
+  `;
+  fullscreenBtn.title = translator.t('fullscreenTooltip');
 }
 
 async function duplicateSnippet() {
@@ -262,6 +386,7 @@ function bindEvents() {
   saveBtn.addEventListener('click', saveSnippet);
   dupBtn.addEventListener('click', duplicateSnippet);
   delBtn.addEventListener('click', deleteSnippet);
+  fullscreenBtn.addEventListener('click', toggleFullscreen);
   exportBtn.addEventListener('click', exportSnippets);
   importBtn.addEventListener('click', () => importFile.click());
   importFile.addEventListener('change', handleImportFile);
@@ -275,11 +400,9 @@ function bindEvents() {
   // Editor events: input, scroll sync, Tab/Enter helpers
   codeEl.addEventListener('input', () => {
     updateHighlight();
+    scheduleAutosave();
   });
-  codeEl.addEventListener('scroll', () => {
-    highlightPre.scrollTop = codeEl.scrollTop;
-    highlightPre.scrollLeft = codeEl.scrollLeft;
-  });
+  codeEl.addEventListener('scroll', syncHighlightScroll);
   codeEl.addEventListener('keydown', (e) => {
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -297,6 +420,7 @@ function bindEvents() {
       });
     }
   });
+  nameEl.addEventListener('input', scheduleAutosave);
 
   // Ctrl/Cmd+S to save, Ctrl/Cmd+Enter to run
   document.addEventListener('keydown', (e) => {
@@ -337,6 +461,15 @@ function bindEvents() {
     setStatus(translator.t('orderUpdated'));
     renderList();
   });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushAutosave();
+  });
+  window.addEventListener('beforeunload', () => {
+    flushAutosave();
+  });
+
+  chrome.storage.onChanged.addListener(handleStorageChange);
 }
 
 function updateUI() {
@@ -360,6 +493,7 @@ function updateUI() {
   saveBtn.textContent = translator.t('save');
   dupBtn.textContent = translator.t('duplicate');
   delBtn.textContent = translator.t('delete');
+  updateFullscreenButton();
   exportBtn.textContent = translator.t('export');
   exportBtn.title = translator.t('exportTooltip');
   importBtn.textContent = translator.t('import');
@@ -382,20 +516,45 @@ function updateUI() {
 (async function init() {
   await translator.init();
   languageSelector.value = translator.getCurrentLanguage();
+  if (isFullscreenPage) {
+    document.body.classList.add('fullscreen');
+    isFullscreen = true;
+  }
   
   await loadSnippets();
   activeId = snippets[0]?.id || null;
   bindEvents();
   updateUI();
   if (activeId) selectSnippet(activeId);
+  if (isFullscreenPage && fullscreenBtn) fullscreenBtn.style.display = 'none';
 })();
 
 // ----- Syntax highlighting (lightweight) -----
+function syncHighlightScroll() {
+  if (!highlightPre) return;
+  highlightPre.scrollTop = codeEl.scrollTop;
+  highlightPre.scrollLeft = codeEl.scrollLeft;
+}
+
+function handleStorageChange(changes, areaName) {
+  if (areaName !== 'sync' && areaName !== 'local') return;
+  const syncChange = changes[STORAGE_KEY];
+  const localChange = changes[LOCAL_STORAGE_KEY];
+  const next = syncChange?.newValue || localChange?.newValue;
+  if (!Array.isArray(next)) return;
+  snippets = next;
+  const keepId = snippets.find((s) => s.id === activeId) ? activeId : snippets[0]?.id || null;
+  activeId = keepId;
+  renderList();
+  if (keepId) selectSnippet(keepId);
+}
+
 function updateHighlight() {
   const code = codeEl.value;
   if (!highlightCode) return;
   highlightCode.innerHTML = highlightJS(code);
   if (code.endsWith('\n')) highlightCode.innerHTML += ' ';
+  syncHighlightScroll();
 }
 
 function highlightPlainSegment(seg) {
@@ -439,6 +598,7 @@ function insertTextAtCursor(text) {
   const pos = start + text.length;
   codeEl.selectionStart = codeEl.selectionEnd = pos;
   updateHighlight();
+  scheduleAutosave();
 }
 
 // ----- Export / Import -----

@@ -18,12 +18,15 @@ const TRANSLATIONS = {
     delete: 'Delete',
     export: 'Export',
     import: 'Import',
+    fullscreenEnter: 'Fullscreen',
+    fullscreenExit: 'Exit fullscreen',
     
     // Tooltips
     newSnippetTooltip: 'New snippet',
     runSnippetTooltip: 'Run snippet',
     exportTooltip: 'Export snippets',
     importTooltip: 'Import snippets',
+    fullscreenTooltip: 'Open fullscreen in a new tab',
     dragToReorderTooltip: 'Drag to reorder',
     deleteTooltip: 'Delete',
     
@@ -45,6 +48,8 @@ const TRANSLATIONS = {
     snippetDeleted: 'Snippet deleted',
     executedSuccessfully: 'Executed successfully',
     exported: 'Exported',
+    savedLocallyFallback: 'Saved locally (sync full)',
+    loadedFromLocal: 'Loaded from local storage (sync full)',
     clearSearchToReorder: 'Clear search to reorder',
     orderUpdated: 'Order updated',
     noActiveTab: 'No active tab',
@@ -80,12 +85,15 @@ const TRANSLATIONS = {
     delete: 'Excluir',
     export: 'Exportar',
     import: 'Importar',
+    fullscreenEnter: 'Tela cheia',
+    fullscreenExit: 'Sair da tela cheia',
     
     // Tooltips
     newSnippetTooltip: 'Novo snippet',
     runSnippetTooltip: 'Executar snippet',
     exportTooltip: 'Exportar snippets',
     importTooltip: 'Importar snippets',
+    fullscreenTooltip: 'Abrir em tela cheia em uma nova aba',
     dragToReorderTooltip: 'Arrastar para reordenar',
     deleteTooltip: 'Excluir',
     
@@ -107,6 +115,8 @@ const TRANSLATIONS = {
     snippetDeleted: 'Snippet excluído',
     executedSuccessfully: 'Executado com sucesso',
     exported: 'Exportado',
+    savedLocallyFallback: 'Salvo localmente (sync cheio)',
+    loadedFromLocal: 'Carregado do armazenamento local (sync cheio)',
     clearSearchToReorder: 'Limpe a busca para reordenar',
     orderUpdated: 'Ordem atualizada',
     noActiveTab: 'Nenhuma aba ativa',
