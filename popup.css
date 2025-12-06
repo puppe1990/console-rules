@@ -378,6 +378,9 @@ button:disabled {
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: 0 2px 8px var(--shadow);
+  /* Ensure container allows scrolling */
+  display: flex;
+  flex-direction: column;
 }
 
 .code-editor pre,
@@ -391,6 +394,7 @@ button:disabled {
   word-break: break-word;
   tab-size: 2;
   font-feature-settings: 'liga' 1, 'calt' 1;
+  box-sizing: border-box;
 }
 
 .code-editor pre {
@@ -399,7 +403,9 @@ button:disabled {
   color: var(--fg);
   pointer-events: none;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  overflow: auto;
+  overflow-y: auto;
+  overflow-x: auto;
   z-index: 0;
 }
 
@@ -415,6 +421,8 @@ button:disabled {
   transition: var(--transition);
   z-index: 1;
   overflow: auto;
+  overflow-y: scroll;
+  overflow-x: auto;
 }
 
 .fullscreen .layout {

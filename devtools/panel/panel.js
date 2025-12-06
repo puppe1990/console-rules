@@ -91,6 +91,15 @@ function selectSnippet(id) {
   codeEl.value = s.code;
   updateHighlight();
   renderList();
+  
+  // Ensure scroll works when loading saved code
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      void codeEl.offsetHeight; // Force reflow
+      codeEl.style.overflowY = 'scroll';
+      syncHighlightScroll();
+    });
+  });
 }
 
 function getActive() { return snippets.find((x) => x.id === activeId) || null; }
@@ -190,8 +199,35 @@ function bindEvents() {
     updateHighlight();
   });
   codeEl.addEventListener('scroll', () => {
-    highlightPre.scrollTop = codeEl.scrollTop;
-    highlightPre.scrollLeft = codeEl.scrollLeft;
+    syncHighlightScroll();
+  });
+  // Fix scroll issue when pasting large code
+  codeEl.addEventListener('paste', () => {
+    // Allow default paste behavior, then fix scroll
+    setTimeout(() => {
+      // Force multiple reflows to ensure scrollHeight is calculated
+      void codeEl.offsetHeight;
+      updateHighlight();
+      
+      // Wait for highlight to update, then ensure scroll works
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          // Force another reflow
+          void codeEl.offsetHeight;
+          
+          // Ensure scrollbar is visible
+          codeEl.style.overflowY = 'scroll';
+          
+          // Try to scroll to verify it works
+          const maxScroll = codeEl.scrollHeight - codeEl.clientHeight;
+          if (maxScroll > 0) {
+            // Test if we can scroll
+            codeEl.scrollTop = maxScroll;
+            syncHighlightScroll();
+          }
+        });
+      });
+    }, 0);
   });
   codeEl.addEventListener('keydown', (e) => {
     if (e.key === 'Tab') {
@@ -271,11 +307,42 @@ function updateUI() {
 })();
 
 // ----- Syntax highlighting (lightweight) -----
+function syncHighlightScroll() {
+  if (!highlightPre) return;
+  highlightPre.scrollTop = codeEl.scrollTop;
+  highlightPre.scrollLeft = codeEl.scrollLeft;
+}
+
+// Ensure textarea can scroll to the absolute end
+function ensureScrollable() {
+  // Simple approach: just ensure scroll works by forcing a reflow
+  void codeEl.offsetHeight;
+  const scrollHeight = codeEl.scrollHeight;
+  const clientHeight = codeEl.clientHeight;
+  
+  if (scrollHeight > clientHeight) {
+    // Ensure the scrollbar is visible and functional
+    codeEl.style.overflowY = 'scroll';
+    syncHighlightScroll();
+  }
+}
+
 function updateHighlight() {
   const code = codeEl.value;
   if (!highlightCode) return;
   highlightCode.innerHTML = highlightJS(code);
   if (code.endsWith('\n')) highlightCode.innerHTML += ' ';
+  syncHighlightScroll();
+  
+  // Ensure scroll works after highlight update (for saved code)
+  requestAnimationFrame(() => {
+    void codeEl.offsetHeight; // Force reflow
+    const scrollHeight = codeEl.scrollHeight;
+    const clientHeight = codeEl.clientHeight;
+    if (scrollHeight > clientHeight) {
+      codeEl.style.overflowY = 'scroll';
+    }
+  });
 }
 
 function highlightPlainSegment(seg) {
