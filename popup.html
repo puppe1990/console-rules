@@ -53,6 +53,9 @@
         <div class="field">
           <label for="codeInput">Código</label>
           <div class="code-editor" id="codeEditor">
+            <div class="line-numbers" aria-hidden="true">
+              <div id="line-numbers-content" class="line-numbers-content"></div>
+            </div>
             <pre id="highlighting" aria-hidden="true"><code id="highlighting-content" class="language-javascript"></code></pre>
             <textarea id="codeInput" spellcheck="false" placeholder="// Cole ou escreva seu código aqui"></textarea>
           </div>
@@ -74,6 +77,6 @@
     </footer>
 
     <script src="translations.js"></script>
-    <script src="popup.js"></script>
+    <script type="module" src="popup.js"></script>
   </body>
 </html>

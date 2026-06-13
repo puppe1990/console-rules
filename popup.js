@@ -5,6 +5,14 @@
   - Persist snippets in chrome.storage.sync
 */
 
+import { escapeHtml } from './lib/highlight.js';
+import {
+  refreshEditorScroll,
+  syncHighlightScroll,
+  updateEditorHighlight,
+} from './lib/editor-scroll.js';
+import { estimateBytes, isQuotaError } from './lib/storage-utils.js';
+
 // Storage helpers
 const STORAGE_KEY = 'consoleRules.snippets';
 
@@ -16,8 +24,9 @@ const searchEl = $('#searchInput');
 const nameEl = $('#nameInput');
 const codeEl = $('#codeInput');
 const statusEl = $('#status');
-const highlightPre = document.querySelector('#highlighting');
+const codeEditor = $('#codeEditor');
 const highlightCode = document.querySelector('#highlighting-content');
+const lineNumbersContent = document.querySelector('#line-numbers-content');
 const languageSelector = $('#languageSelector');
 const fullscreenBtn = $('#fullscreenBtn');
 const urlParams = new URLSearchParams(location.search);
@@ -76,19 +85,6 @@ async function loadSnippets() {
 
 const LOCAL_STORAGE_KEY = 'consoleRules.snippets.local';
 const SYNC_SAFE_BYTES = 7500; // soft cap to avoid per-item quota hits
-
-function isQuotaError(err) {
-  const msg = (err && err.message ? err.message : String(err || '')).toLowerCase();
-  return msg.includes('quota') || msg.includes('kquotabytesperitem');
-}
-
-function estimateBytes(obj) {
-  try {
-    return new TextEncoder().encode(JSON.stringify(obj)).length;
-  } catch {
-    return Infinity;
-  }
-}
 
 async function saveAll() {
   const payload = { [STORAGE_KEY]: snippets };
@@ -183,10 +179,6 @@ function renderList() {
   }
 }
 
-function escapeHtml(str) {
-  return str.replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' }[c]));
-}
-
 function selectSnippet(id) {
   const s = snippets.find((x) => x.id === id);
   if (!s) return;
@@ -195,15 +187,7 @@ function selectSnippet(id) {
   codeEl.value = s.code;
   updateHighlight();
   renderList();
-  
-  // Ensure scroll works when loading saved code
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      void codeEl.offsetHeight; // Force reflow
-      codeEl.style.overflowY = 'scroll';
-      syncHighlightScroll();
-    });
-  });
+  requestAnimationFrame(() => refreshEditorScroll(codeEl, highlightCode, lineNumbersContent, codeEditor));
 }
 
 function getActive() { return snippets.find((x) => x.id === activeId) || null; }
@@ -411,33 +395,11 @@ function bindEvents() {
     updateHighlight();
     scheduleAutosave();
   });
-  codeEl.addEventListener('scroll', syncHighlightScroll);
-  // Fix scroll issue when pasting large code
+  codeEl.addEventListener('scroll', () => syncHighlightScroll(codeEl, highlightCode, lineNumbersContent));
   codeEl.addEventListener('paste', () => {
-    // Allow default paste behavior, then fix scroll
     setTimeout(() => {
-      // Force multiple reflows to ensure scrollHeight is calculated
-      void codeEl.offsetHeight;
       updateHighlight();
-      
-      // Wait for highlight to update, then ensure scroll works
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          // Force another reflow
-          void codeEl.offsetHeight;
-          
-          // Ensure scrollbar is visible
-          codeEl.style.overflowY = 'scroll';
-          
-          // Try to scroll to verify it works
-          const maxScroll = codeEl.scrollHeight - codeEl.clientHeight;
-          if (maxScroll > 0) {
-            // Test if we can scroll
-            codeEl.scrollTop = maxScroll;
-            syncHighlightScroll();
-          }
-        });
-      });
+      requestAnimationFrame(() => refreshEditorScroll(codeEl, highlightCode, lineNumbersContent, codeEditor));
     }, 0);
   });
   codeEl.addEventListener('keydown', (e) => {
@@ -566,27 +528,6 @@ function updateUI() {
   if (isFullscreenPage && fullscreenBtn) fullscreenBtn.style.display = 'none';
 })();
 
-// ----- Syntax highlighting (lightweight) -----
-function syncHighlightScroll() {
-  if (!highlightPre) return;
-  highlightPre.scrollTop = codeEl.scrollTop;
-  highlightPre.scrollLeft = codeEl.scrollLeft;
-}
-
-// Ensure textarea can scroll to the absolute end
-function ensureScrollable() {
-  // Simple approach: just ensure scroll works by forcing a reflow
-  void codeEl.offsetHeight;
-  const scrollHeight = codeEl.scrollHeight;
-  const clientHeight = codeEl.clientHeight;
-  
-  if (scrollHeight > clientHeight) {
-    // Ensure the scrollbar is visible and functional
-    codeEl.style.overflowY = 'scroll';
-    syncHighlightScroll();
-  }
-}
-
 function handleStorageChange(changes, areaName) {
   if (areaName !== 'sync' && areaName !== 'local') return;
   const syncChange = changes[STORAGE_KEY];
@@ -601,54 +542,7 @@ function handleStorageChange(changes, areaName) {
 }
 
 function updateHighlight() {
-  const code = codeEl.value;
-  if (!highlightCode) return;
-  highlightCode.innerHTML = highlightJS(code);
-  if (code.endsWith('\n')) highlightCode.innerHTML += ' ';
-  syncHighlightScroll();
-  
-  // Ensure scroll works after highlight update (for saved code)
-  requestAnimationFrame(() => {
-    void codeEl.offsetHeight; // Force reflow
-    const scrollHeight = codeEl.scrollHeight;
-    const clientHeight = codeEl.clientHeight;
-    if (scrollHeight > clientHeight) {
-      codeEl.style.overflowY = 'scroll';
-    }
-  });
-}
-
-function highlightPlainSegment(seg) {
-  // numbers
-  const numRe = /\b(?:0x[0-9a-fA-F]+|\d+(?:\.\d+)?(?:e[+-]?\d+)?)\b/g;
-  // keywords and literals
-  const kw = 'break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|let|new|return|super|switch|this|throw|try|typeof|var|void|while|with|yield|await|async|null|true|false|undefined';
-  const kwRe = new RegExp('\\b(?:' + kw + ')\\b', 'g');
-  let out = escapeHtml(seg);
-  out = out.replace(kwRe, m => `<span class="tok-kw">${m}</span>`);
-  out = out.replace(numRe, m => `<span class="tok-num">${m}</span>`);
-  return out;
-}
-
-function highlightJS(code) {
-  const pattern = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/|`(?:\\[\s\S]|[^\\`])*`|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*")/g;
-  let lastIndex = 0;
-  let html = '';
-  let m;
-  while ((m = pattern.exec(code))) {
-    const idx = m.index;
-    if (idx > lastIndex) {
-      html += highlightPlainSegment(code.slice(lastIndex, idx));
-    }
-    const token = m[0];
-    const cls = token.startsWith('/*') || token.startsWith('//') ? 'tok-com' : 'tok-str';
-    html += `<span class="${cls}">${escapeHtml(token)}</span>`;
-    lastIndex = pattern.lastIndex;
-  }
-  if (lastIndex < code.length) {
-    html += highlightPlainSegment(code.slice(lastIndex));
-  }
-  return html;
+  updateEditorHighlight(codeEl, highlightCode, lineNumbersContent, codeEditor);
 }
 
 function insertTextAtCursor(text) {
